@@ -3,14 +3,24 @@
 const { EventEmitter } = require('node:events');
 
 class Logger {
-  static color(level) {
+  static COLORS = {
+    warn: '\x1b[1;33m',
+    error: '\x1b[0;31m',
+    info: '\x1b[1;37m',
+  };
+
+  constructor(output = console) {
+    this.output = output;
+  }
+
+  color(level) {
     return Logger.COLORS[level] || Logger.COLORS.info;
   }
 
   log(level, s) {
     const date = new Date().toISOString();
-    const color = Logger.color(level);
-    console.log(color + date + '\t' + s + '\x1b[0m');
+    const color = this.color(level); // Use this to access instance method
+    this.output.log(color + date + '\t' + s + '\x1b[0m');
   }
 
   warn(s) {
@@ -25,12 +35,6 @@ class Logger {
     this.log('info', s);
   }
 }
-
-Logger.COLORS = {
-  warn: '\x1b[1;33m',
-  error: '\x1b[0;31m',
-  info: '\x1b[1;37m',
-};
 
 class Task extends EventEmitter {
   constructor(name, time, exec) {
@@ -88,10 +92,10 @@ class Task extends EventEmitter {
 }
 
 class Scheduler extends EventEmitter {
-  constructor() {
+  constructor({ options = { output: console } } = {}) {
     super();
     this.tasks = new Map();
-    this.logger = new Logger();
+    this.logger = new Logger(options.output);
   }
 
   task(name, time, exec) {
@@ -99,14 +103,14 @@ class Scheduler extends EventEmitter {
     const task = new Task(name, time, exec);
     this.tasks.set(name, task);
     task.on('error', (err) => {
-      this.logger.error(task.name + '\t' + err.message);
+      this.logger.error(`${task.name}\t${err.message}`);
       this.emit('error', err, task);
     });
     task.on('begin', () => {
-      this.logger.info(task.name + '\tbegin');
+      this.logger.info(`${task.name}\tbegin`);
     });
     task.on('end', (res = '') => {
-      this.logger.warn(task.name + '\tend\t' + res);
+      this.logger.warn(`${task.name}\tend\t${res}`);
     });
     task.start();
     return task;
@@ -128,8 +132,7 @@ class Scheduler extends EventEmitter {
 }
 
 // Usage
-
-const scheduler = new Scheduler();
+const scheduler = new Scheduler({ options: { output: console } });
 
 scheduler.on('error', (err, task) => {
   console.log(`Error in ${task.name}:\n ${err.stack}`);
