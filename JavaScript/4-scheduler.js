@@ -19,7 +19,7 @@ class Logger {
 
   log(level, s) {
     const date = new Date().toISOString();
-    const color = this.color(level); // Use this to access instance method
+    const color = this.color(level);
     this.output.log(color + date + '\t' + s + '\x1b[0m');
   }
 
@@ -37,18 +37,9 @@ class Logger {
 }
 
 class Task extends EventEmitter {
-  constructor(name, time, exec) {
+  constructor(name, exec) {
     super();
     this.name = name;
-    if (typeof time === 'number') {
-      this.time = Date.now() + time;
-      this.set = setInterval;
-      this.clear = clearInterval;
-    } else {
-      this.time = new Date(time).getTime();
-      this.set = setTimeout;
-      this.clear = clearTimeout;
-    }
     this.exec = exec;
     this.running = false;
     this.count = 0;
@@ -91,6 +82,24 @@ class Task extends EventEmitter {
   }
 }
 
+class IntervalTask extends Task {
+  constructor(name, time, exec) {
+    super(name, exec);
+    this.time = Date.now() + time;
+    this.set = setInterval;
+    this.clear = clearInterval;
+  }
+}
+
+class TimeoutTask extends Task {
+  constructor(name, time, exec) {
+    super(name, exec);
+    this.time = new Date(time).getTime();
+    this.set = setTimeout;
+    this.clear = clearTimeout;
+  }
+}
+
 class Scheduler extends EventEmitter {
   constructor({ options = { output: console } } = {}) {
     super();
@@ -100,7 +109,9 @@ class Scheduler extends EventEmitter {
 
   task(name, time, exec) {
     this.stop(name);
-    const task = new Task(name, time, exec);
+    const task = typeof time === 'number'
+      ? new IntervalTask(name, time, exec)
+      : new TimeoutTask(name, time, exec);
     this.tasks.set(name, task);
     task.on('error', (err) => {
       this.logger.error(`${task.name}\t${err.message}`);
@@ -139,13 +150,13 @@ scheduler.on('error', (err, task) => {
   //process.exit(1);
 });
 
-scheduler.task('name1', '2019-03-12T14:37Z', (done) => {
+scheduler.task('name1', '2035-03-12T14:37Z', (done) => {
   setTimeout(() => {
     done(null, 'task successed');
   }, 1000);
 });
 
-scheduler.task('name2', '2019-03-12T14:37Z', (done) => {
+scheduler.task('name2', '2035-03-12T14:37Z', (done) => {
   setTimeout(() => {
     done(new Error('task failed'));
   }, 1100);
