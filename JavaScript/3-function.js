@@ -4,37 +4,34 @@ const timeoutCollection = (interval) => {
   const collection = new Map();
   const timers = new Map();
 
-  const instance = {};
-
-  instance.set = (key, value) => {
-    const timer = timers.get(key);
-    if (timer) clearTimeout(timer);
-    const timeout = setTimeout(() => {
-      collection.delete(key);
-    }, interval);
-    timeout.unref();
-    collection.set(key, value);
-    timers.set(key, timer);
-  };
-
-  instance.get = (key) => collection.get(key);
-
-  instance.delete = (key) => {
-    const timer = timers.get(key);
-    if (timer) {
-      clearTimeout(timer);
-      collection.delete(key);
-      timers.delete(key);
+  return {
+    set(key, value) {
+      const existingTimer = timers.get(key);
+      if (existingTimer) clearTimeout(existingTimer);
+      const timeout = setTimeout(() => collection.delete(key), interval);
+      if (typeof timeout.unref === 'function') timeout.unref();
+      collection.set(key, value);
+      timers.set(key, timeout);
+      return this;
+    },
+    get(key) {
+      return collection.get(key);
+    },
+    delete(key) {
+      const timer = timers.get(key);
+      if (timer) {
+        clearTimeout(timer);
+        collection.delete(key);
+        timers.delete(key);
+      }
+    },
+    toArray() {
+      return [...collection.entries()];
     }
   };
-
-  instance.toArray = () => [...collection.entries()];
-
-  return instance;
 };
 
 // Usage
-
 const hash = timeoutCollection(1000);
 hash.set('uno', 1);
 console.dir({ array: hash.toArray() });
